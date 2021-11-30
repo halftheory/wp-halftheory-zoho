@@ -76,13 +76,12 @@ class WP_Zoho_Plugin {
 		$query_single = "DELETE FROM $wpdb->options WHERE option_name LIKE '_transient_".$plugin->subclass->prefix."%' OR option_name LIKE '_transient_timeout_".$plugin->subclass->prefix."%'";
 		if (is_multisite()) {
 			$wpdb->query("DELETE FROM $wpdb->sitemeta WHERE meta_key LIKE '_site_transient_".$plugin->subclass->prefix."%' OR meta_key LIKE '_site_transient_timeout_".$plugin->subclass->prefix."%'");
-			$current_blog_id = get_current_blog_id();
 			$sites = get_sites();
 			foreach ($sites as $key => $value) {
 				switch_to_blog($value->blog_id);
 				$wpdb->query($query_single);
+				restore_current_blog();
 			}
-			switch_to_blog($current_blog_id);
 		}
 		else {
 			$wpdb->query($query_single);
@@ -100,14 +99,13 @@ class WP_Zoho_Plugin {
 		if (is_multisite()) {
 			delete_site_option($plugin->subclass->prefix);
 			$wpdb->query("DELETE FROM $wpdb->sitemeta WHERE meta_key = '".$plugin->subclass->prefix."' OR meta_key LIKE '".$plugin->subclass->prefix."_%'");
-			$current_blog_id = get_current_blog_id();
 			$sites = get_sites();
 			foreach ($sites as $key => $value) {
 				switch_to_blog($value->blog_id);
 				delete_option($plugin->subclass->prefix);
 				$wpdb->query($query_options);
+				restore_current_blog();
 			}
-			switch_to_blog($current_blog_id);
 		}
 		else {
 			delete_option($plugin->subclass->prefix);
