@@ -111,10 +111,10 @@ class WP_Zoho {
 		return true;
 	}
 
-	private function get_current_uri() {
+	private function get_current_uri($keep_query = false) {
 		if (function_exists(__FUNCTION__)) {
 			$func = __FUNCTION__;
-			return $func();
+			return $func($keep_query);
 		}
 	 	$res  = is_ssl() ? 'https://' : 'http://';
 	 	$res .= $_SERVER['HTTP_HOST'];
@@ -123,6 +123,16 @@ class WP_Zoho {
 			if (!empty($_SERVER["HTTP_REFERER"])) {
 				$res = $_SERVER["HTTP_REFERER"];
 			}
+		}
+		if (!$keep_query) {
+			$remove = array();
+			if ($str = parse_url($res, PHP_URL_QUERY)) {
+				$remove[] = '?'.$str;
+			}
+			if ($str = parse_url($res, PHP_URL_FRAGMENT)) {
+				$remove[] = '#'.$str;
+			}
+			$res = str_replace($remove, '', $res);
 		}
 		return $res;
 	}
@@ -146,7 +156,7 @@ class WP_Zoho {
 				$this->plugin_title,
 				'manage_options',
 				$this->prefix,
-				__CLASS__ .'::menu_page'
+				array($this,'menu_page')
 			);
 			return;
 		}
@@ -167,7 +177,7 @@ class WP_Zoho {
 				$parent_name,
 				'manage_options',
 				$parent_slug,
-				__CLASS__ .'::menu_page'
+				array($this,'menu_page')
 			);
 		}
 
@@ -178,7 +188,7 @@ class WP_Zoho {
 			$this->plugin_title,
 			'manage_options',
 			$this->prefix,
-			__CLASS__ .'::menu_page'
+			array($this,'menu_page')
 		);
 	}
 
@@ -190,7 +200,7 @@ class WP_Zoho {
 		<?php
  		$plugin = new WP_Zoho();
 
- 		if ($_POST['refresh_contacts_zoho_fields']) {
+        if (isset($_POST['refresh_contacts_zoho_fields']) && !empty($_POST['refresh_contacts_zoho_fields'])) {
 			if ($plugin->delete_transient($plugin->prefix.'_xml_Contacts_getFields') && $plugin->delete_transient($plugin->prefix.'_contacts_zoho_fields')) {
         		echo '<div class="updated"><p><strong>The old fields have been deleted.</strong></p></div>';
 			}
@@ -199,7 +209,7 @@ class WP_Zoho {
 			}
  		}
 
- 		if ($_POST['bulk_update_all_users']) {
+        if (isset($_POST['bulk_update_all_users']) && !empty($_POST['bulk_update_all_users'])) {
 			$cron = $plugin->get_option('cron', false);
 			if (empty($cron)) {
         		echo '<div class="error"><p><strong>Error: The Cronjob is not active.</strong></p></div>';
@@ -230,7 +240,7 @@ class WP_Zoho {
     		}
  		}
 
-        if ($_POST['save']) {
+        if (isset($_POST['save']) && !empty($_POST['save'])) {
         	$save = function() use ($plugin) {
 				// verify this came from the our screen and with proper authorization
 				if (!isset($_POST[$plugin->plugin_name.'::menu_page'])) {
@@ -498,9 +508,7 @@ class WP_Zoho {
         </div>
 
 
-        <p class="submit">
-            <input type="submit" value="Update" id="publish" class="button button-primary button-large" name="save">
-        </p>
+        <?php submit_button(__('Update'), array('primary','large'), 'save'); ?>
 
         </div><!-- poststuff -->
     	</form>
