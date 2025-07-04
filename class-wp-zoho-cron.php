@@ -3,11 +3,13 @@
 Available filters:
 wpzoho_contacts_wp_data
 */
+
 set_time_limit(0);
 
-// accessed directly?
+// Accessed directly?
+$wpzoho_cron_direct = false;
 if (!defined('ABSPATH')) {
-	// load wp
+	// Load WP.
 	$wp_load = false;
 	$root_paths = array(
 		substr(dirname(__FILE__), 0, strpos(dirname(__FILE__), '/wp-content')),
@@ -29,7 +31,7 @@ if (!defined('ABSPATH')) {
 	$wpzoho_cron_direct = true;
 }
 
-if (class_exists('SimpleXMLElement') && !class_exists('SimpleXMLExtended')) :
+if (class_exists('SimpleXMLElement') && !class_exists('SimpleXMLExtended')) {
 	class SimpleXMLExtended extends SimpleXMLElement {
 		public function addCData($str) {
 			$node = dom_import_simplexml($this);
@@ -37,9 +39,9 @@ if (class_exists('SimpleXMLElement') && !class_exists('SimpleXMLExtended')) :
 			$node->appendChild($no->createCDATASection($str));
 		}
 	}
-endif;
+}
 
-if (!class_exists('WP_Zoho_Cron')) :
+if (!class_exists('WP_Zoho_Cron')) {
 	class WP_Zoho_Cron {
 
 		var $delete = array();
@@ -63,11 +65,7 @@ if (!class_exists('WP_Zoho_Cron')) :
 				$this->subclass->cron_toggle(false);
 				return;
 			}
-			$this->zoho_api_limit = (int)$this->subclass->get_option('zoho_api_limit', 1000);
-			if ($this->zoho_api_limit == 0) {
-				$this->zoho_api_limit = 1000;
-				// TODO: make this per day, not per cron
-			}
+			$this->zoho_api_limit = max((int)$this->subclass->get_option('zoho_api_limit', 1000), 1000);
 			$this->zoho_api_requests = 0;
 
 			$this->delete = $this->subclass->get_transient($this->prefix.'_cron_contacts_delete');
@@ -83,48 +81,44 @@ if (!class_exists('WP_Zoho_Cron')) :
 			if (empty($this->delete)) {
 				return;
 			}
-	        $zoho_authtoken = $this->subclass->get_option('zoho_authtoken', '');
-	    	$zoho_xml_Contacts_deleteRecords = $this->subclass->get_option('zoho_xml_Contacts_deleteRecords', '');
-	    	$nexttime = array();
+			$zoho_authtoken = $this->subclass->get_option('zoho_authtoken', '');
+			$zoho_xml_Contacts_deleteRecords = $this->subclass->get_option('zoho_xml_Contacts_deleteRecords', '');
+			$nexttime = array();
 
-	    	foreach ($this->delete as $user_id => $zoho_id) {
-	    		if ($this->zoho_api_requests >= $this->zoho_api_limit) {
-	    			$nexttime[$user_id] = $zoho_id;
-	    			continue;
-	    		}
-				// delete meta
+			foreach ($this->delete as $user_id => $zoho_id) {
+				if ($this->zoho_api_requests >= $this->zoho_api_limit) {
+					$nexttime[$user_id] = $zoho_id;
+					continue;
+				}
+				// Delete meta.
 				delete_user_meta($user_id, $this->prefix);
-				// remove from update
+				// Remove from update.
 				if (in_array($user_id, $this->update)) {
 					$key = array_search($user_id, $this->update);
 					unset($this->update[$key]);
 				}
 				if (empty($zoho_authtoken)) {
-					// error
+					// Error.
 					$this->messages[] = __FUNCTION__.' - zoho_authtoken not defined.';
 					continue;
 				}
 				if (empty($zoho_xml_Contacts_deleteRecords)) {
-					// error
+					// Error.
 					$this->messages[] = __FUNCTION__.' - zoho_xml_Contacts_deleteRecords not defined.';
 					continue;
 				}
-				// delete zoho
-	        	$replace = array(
-	        		'###AUTHTOKEN###' => $zoho_authtoken,
-	        		'###ID###' => $zoho_id,
-	        	);
-	        	$url = str_replace(array_keys($replace), $replace, $zoho_xml_Contacts_deleteRecords);
-	    		if ($xml = $this->subclass->get_file_contents($url)) {
-					// ok
-					//$this->messages[] = __FUNCTION__.' - user_id '.$user_id.' - zoho_id '.$zoho_id.' - ok.';
-	    		}
-	    		else {
-	    			// error
+				// Delete Zoho.
+				$replace = array(
+					'###AUTHTOKEN###' => $zoho_authtoken,
+					'###ID###' => $zoho_id,
+				);
+				$url = str_replace(array_keys($replace), $replace, $zoho_xml_Contacts_deleteRecords);
+				if (!$this->subclass->get_file_contents($url)) {
+					// Error.
 					$this->messages[] = __FUNCTION__.' - user_id '.$user_id.' - zoho_id '.$zoho_id.' - zoho_xml_Contacts_deleteRecords XML failed.';
-	    		}
+				}
 				++$this->zoho_api_requests;
-	    	}
+			}
 			$this->subclass->delete_transient($this->prefix.'_cron_contacts_delete');
 			if (!empty($nexttime)) {
 				$this->subclass->set_transient($this->prefix.'_cron_contacts_delete', $nexttime, '2 hours');
@@ -135,32 +129,32 @@ if (!class_exists('WP_Zoho_Cron')) :
 			if (empty($this->update)) {
 				return;
 			}
-	        $zoho_authtoken = $this->subclass->get_option('zoho_authtoken', '');
+			$zoho_authtoken = $this->subclass->get_option('zoho_authtoken', '');
 			$this->get_user_field_map();
 			$this->get_zoho_fields();
-	    	$zoho_xml_Contacts_insertRecords = $this->subclass->get_option('zoho_xml_Contacts_insertRecords', '');
-	    	$zoho_xml_Contacts_updateRecords = $this->subclass->get_option('zoho_xml_Contacts_updateRecords', '');
-	    	$zoho_xml_Contacts_getSearchRecordsByPDC = $this->subclass->get_option('zoho_xml_Contacts_getSearchRecordsByPDC', '');
+			$zoho_xml_Contacts_insertRecords = $this->subclass->get_option('zoho_xml_Contacts_insertRecords', '');
+			$zoho_xml_Contacts_updateRecords = $this->subclass->get_option('zoho_xml_Contacts_updateRecords', '');
+			$zoho_xml_Contacts_getSearchRecordsByPDC = $this->subclass->get_option('zoho_xml_Contacts_getSearchRecordsByPDC', '');
 			$last_updated = date("Y-m-d H:i:s", time());
 			$nexttime = array();
 
-	    	foreach ($this->update as $user_id) {
-	    		if ($this->zoho_api_requests >= $this->zoho_api_limit) {
-	    			$nexttime[] = $user_id;
-	    			continue;
-	    		}
+			foreach ($this->update as $user_id) {
+				if ($this->zoho_api_requests >= $this->zoho_api_limit) {
+					$nexttime[] = $user_id;
+					continue;
+				}
 				if (empty($zoho_authtoken)) {
-					// error
+					// Error.
 					$this->messages[] = __FUNCTION__.' - zoho_authtoken not defined.';
 					break;
 				}
 				if (empty($this->user_field_map)) {
-					// error
+					// Error.
 					$this->messages[] = __FUNCTION__.' - user_field_map not defined.';
 					break;
 				}
 				if (empty($this->zoho_fields)) {
-					// error
+					// Error.
 					$this->messages[] = __FUNCTION__.' - zoho_fields not defined.';
 					break;
 				}
@@ -173,17 +167,17 @@ if (!class_exists('WP_Zoho_Cron')) :
 				$usermeta = $this->make_array($usermeta);
 				$usermeta_new = array();
 
-				// no zoho_id
+				// No zoho_id.
 				if (!isset($usermeta['zoho_id']) || empty($usermeta['zoho_id'])) {
-					// search by email
+					// Search by email.
 					if (!empty($zoho_xml_Contacts_getSearchRecordsByPDC)) {
-			        	$replace = array(
-			        		'###AUTHTOKEN###' => $zoho_authtoken,
-			        		'###SEARCHVALUE###' => $userdata->user_email,
-			        	);
-			        	$url = str_replace(array_keys($replace), $replace, $zoho_xml_Contacts_getSearchRecordsByPDC);
-			    		if ($xml = $this->subclass->get_file_contents($url)) {
-					    	// parse the XML and get the ID
+						$replace = array(
+							'###AUTHTOKEN###' => $zoho_authtoken,
+							'###SEARCHVALUE###' => $userdata->user_email,
+						);
+						$url = str_replace(array_keys($replace), $replace, $zoho_xml_Contacts_getSearchRecordsByPDC);
+						if ($xml = $this->subclass->get_file_contents($url)) {
+							// Parse the XML and get the ID.
 							if (class_exists('SimpleXmlElement')) {
 								$doc = new SimpleXmlElement($xml);
 								foreach ($doc->result->Contacts->row as $row) {
@@ -202,31 +196,31 @@ if (!class_exists('WP_Zoho_Cron')) :
 									$usermeta['zoho_id'] = $usermeta_new['zoho_id'] = current($matches[1]);
 								}
 							}
-			    		}
-	    				++$this->zoho_api_requests;
+						}
+						++$this->zoho_api_requests;
 					}
 				}
 
-				// insert
+				// Insert.
 				if (!isset($usermeta['zoho_id']) || empty($usermeta['zoho_id'])) {
 					if (empty($zoho_xml_Contacts_insertRecords)) {
-						// error
+						// Error.
 						$this->messages[] = __FUNCTION__.' - zoho_xml_Contacts_insertRecords not defined.';
 						continue;
 					}
 					$xmlData = $this->get_contacts_xmlData($user_id, array('last_updated' => $last_updated));
 					if (empty($xmlData)) {
-						// error
+						// Error.
 						$this->messages[] = __FUNCTION__.' - user_id '.$user_id.' - xmlData not defined.';
 						continue;
 					}
-		        	$replace = array(
-		        		'###AUTHTOKEN###' => $zoho_authtoken,
-		        		'###XMLDATA###' => $xmlData,
-		        	);
-		        	$url = str_replace(array_keys($replace), $replace, $zoho_xml_Contacts_insertRecords);
-		    		if ($xml = $this->subclass->get_file_contents($url)) {
-						// parse the XML and get the ID
+					$replace = array(
+						'###AUTHTOKEN###' => $zoho_authtoken,
+						'###XMLDATA###' => $xmlData,
+					);
+					$url = str_replace(array_keys($replace), $replace, $zoho_xml_Contacts_insertRecords);
+					if ($xml = $this->subclass->get_file_contents($url)) {
+						// Parse the XML and get the ID.
 						if (class_exists('SimpleXmlElement')) {
 							$doc = new SimpleXmlElement($xml);
 							foreach ($doc->result->recorddetail->FL as $field) {
@@ -245,49 +239,47 @@ if (!class_exists('WP_Zoho_Cron')) :
 						$usermeta_new['last_updated'] = $last_updated;
 						$usermeta = array_merge($usermeta, $usermeta_new);
 						update_user_meta($user_id, $this->prefix, $usermeta);
-						//$this->messages[] = __FUNCTION__.' - user_id '.$user_id.' - zoho_id '.$usermeta['zoho_id'].' - ok.';
-		    		}
-		    		else {
-						// error
+					}
+					else {
+						// Error.
 						$this->messages[] = __FUNCTION__.' - user_id '.$user_id.' - zoho_xml_Contacts_insertRecords XML failed.';
-		    		}
+					}
 					++$this->zoho_api_requests;
-		    		continue;
+					continue;
 				}
 
-				// update
+				// Update.
 				if (empty($zoho_xml_Contacts_updateRecords)) {
-					// error
+					// Error.
 					$this->messages[] = __FUNCTION__.' - zoho_xml_Contacts_updateRecords not defined.';
 					continue;
 				}
 				$xmlData = $this->get_contacts_xmlData($user_id, array('zoho_id' => $usermeta['zoho_id'], 'last_updated' => $last_updated));
 				if (empty($xmlData)) {
-					// error
+					// Error.
 					$this->messages[] = __FUNCTION__.' - user_id '.$user_id.' - zoho_id '.$usermeta['zoho_id'].' - xmlData not defined.';
 					continue;
 				}
-	        	$replace = array(
-	        		'###AUTHTOKEN###' => $zoho_authtoken,
-	        		'###ID###' => $usermeta['zoho_id'],
-	        		'###XMLDATA###' => $xmlData,
-	        	);
-	        	$url = str_replace(array_keys($replace), $replace, $zoho_xml_Contacts_updateRecords);
-	    		if ($xml = $this->subclass->get_file_contents($url)) {
+				$replace = array(
+					'###AUTHTOKEN###' => $zoho_authtoken,
+					'###ID###' => $usermeta['zoho_id'],
+					'###XMLDATA###' => $xmlData,
+				);
+				$url = str_replace(array_keys($replace), $replace, $zoho_xml_Contacts_updateRecords);
+				if ($xml = $this->subclass->get_file_contents($url)) {
 					$usermeta_new['last_updated'] = $last_updated;
 					$usermeta = array_merge($usermeta, $usermeta_new);
-					//$this->messages[] = __FUNCTION__.' - user_id '.$user_id.' - zoho_id '.$usermeta['zoho_id'].' - ok.';
-	    		}
-	    		else {
-					// error
+				}
+				else {
+					// Error.
 					$this->messages[] = __FUNCTION__.' - user_id '.$user_id.' - zoho_id '.$usermeta['zoho_id'].' - zoho_xml_Contacts_updateRecords XML failed - removed zoho_id.';
-					// remove zoho_id, queue next time
+					// Remove zoho_id, queue next time.
 					$usermeta = array();
 					$nexttime[] = $user_id;
-	    		}
+				}
 				update_user_meta($user_id, $this->prefix, $usermeta);
 				++$this->zoho_api_requests;
-	    	}
+			}
 
 			$this->subclass->delete_transient($this->prefix.'_cron_contacts_update');
 			if (!empty($nexttime)) {
@@ -304,7 +296,7 @@ if (!class_exists('WP_Zoho_Cron')) :
 			$message = implode("\n", $this->messages);
 			echo $message;
 
-			// mail
+			// Mail.
 			$admin_email = $this->subclass->get_option('admin_email', false);
 			if (empty($admin_email)) {
 				return;
@@ -312,17 +304,17 @@ if (!class_exists('WP_Zoho_Cron')) :
 			wp_mail($admin_email, $this->subclass->plugin_title.' plugin notice - '.get_called_class(), $message);
 		}
 
-		/* functions */
+		// Functions.
 
 		private function get_user_field_map() {
 			if (!isset($this->zoho_fields)) {
-		    	$this->user_field_map = $this->subclass->get_option('user_field_map', array());
-	    	}
+				$this->user_field_map = $this->subclass->get_option('user_field_map', array());
+			}
 		}
 		private function get_zoho_fields() {
 			if (!isset($this->zoho_fields)) {
-	    		$this->zoho_fields = $this->subclass->get_contacts_zoho_fields();
-	    	}
+				$this->zoho_fields = $this->subclass->get_contacts_zoho_fields();
+			}
 		}
 
 		public function get_contacts_xmlData($user_id = 0, $usermeta = array()) {
@@ -337,13 +329,13 @@ if (!class_exists('WP_Zoho_Cron')) :
 
 			$arr = array();
 
-			// compile the data
+			// Compile the data.
 			foreach ($this->zoho_fields as $key => $value) {
-				// section
+				// Section.
 				if (is_array($value)) {
-					// fields
+					// Fields.
 					foreach ($value as $field_key => $field_value) {
-						// required
+						// Required.
 						if (strpos($field_value, $this->subclass->required) !== false) {
 							$data = null;
 							if (isset($this->user_field_map[$field_key])) {
@@ -358,19 +350,19 @@ if (!class_exists('WP_Zoho_Cron')) :
 							$arr[$arr_key] = $data;
 							continue;
 						}
-						// no map
+						// No map.
 						if (!isset($this->user_field_map[$field_key])) {
 							continue;
 						}
-						// has data
+						// Has data.
 						if ($data = $this->get_contacts_wp_data($user_id, $this->user_field_map[$field_key], $usermeta)) {
 							$arr[$field_value] = $data;
 						}
 					}
 				}
-				// field
+				// Field.
 				else {
-					// required
+					// Required.
 					if (strpos($value, $this->subclass->required) !== false) {
 						$data = null;
 						if (isset($this->user_field_map[$key])) {
@@ -385,11 +377,11 @@ if (!class_exists('WP_Zoho_Cron')) :
 						$arr[$arr_key] = $data;
 						continue;
 					}
-					// no map
+					// No map.
 					if (!isset($this->user_field_map[$key])) {
 						continue;
 					}
-					// has data
+					// Has data.
 					if ($data = $this->get_contacts_wp_data($user_id, $this->user_field_map[$key], $usermeta)) {
 						$arr[$value] = $data;
 					}
@@ -400,7 +392,7 @@ if (!class_exists('WP_Zoho_Cron')) :
 				return false;
 			}
 
-			// prepare the data
+			// Prepare the data.
 			$colon2comma = function($str) {
 				$str = htmlspecialchars_decode($str, ENT_COMPAT|ENT_XHTML);
 				return str_replace(";", ",", $str);
@@ -412,20 +404,20 @@ if (!class_exists('WP_Zoho_Cron')) :
 				}
 				else {
 					$value = htmlspecialchars_decode($value, ENT_COMPAT|ENT_XHTML);
-					$value = mb_substr($value, 0, 255); // TODO: check field lengths from zoho
+					$value = mb_substr($value, 0, 255);
 				}
 				$arr[$key] = $value;
 			}
 
-			// make the XML
+			// Make the XML.
 			$has_cdata = function($str) {
-				if (strpos($str, '</') !== false) { // html
+				if (strpos($str, '</') !== false) {
 					return true;
 				}
-				if (preg_match("/[^a-z0-9_\-:\.\+, ]+/is", $str)) { // special chars - includes ;&
+				if (preg_match("/[^a-z0-9_\-:\.\+, ]+/is", $str)) {
 					return true;
 				}
-				elseif (strpos($str, ' ') !== false && preg_match("/[a-z]+/is", $str)) { // text
+				elseif (strpos($str, ' ') !== false && preg_match("/[a-z]+/is", $str)) {
 					return true;
 				}
 				return false;
@@ -434,7 +426,7 @@ if (!class_exists('WP_Zoho_Cron')) :
 				$xmlData = new SimpleXMLExtended('<Contacts><row no="1"/></Contacts>');
 				foreach ($arr as $key => $value) {
 					if ($has_cdata($value)) {
-						$child = $xmlData->row->addChild('FL', null); // very important! we need a node where to append
+						$child = $xmlData->row->addChild('FL', null);
 						$child->addCData($value);
 					}
 					else {
@@ -546,7 +538,7 @@ if (!class_exists('WP_Zoho_Cron')) :
 			return false;
 		}
 
-		/* functions-common */
+		// Functions common.
 
 		private function empty_notzero( $value ) {
 			if ( function_exists(__FUNCTION__) ) {
@@ -585,9 +577,9 @@ if (!class_exists('WP_Zoho_Cron')) :
 			return $arr;
 		}
 	}
-endif;
+}
 
-if (isset($wpzoho_cron_direct)) {
+if ($wpzoho_cron_direct) {
 	$cron = new WP_Zoho_Cron();
 	exit;
 }
